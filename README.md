@@ -18,3 +18,7 @@ Log in to your VM using the **Proxmox Console** (since SSH is currently blocked)
 ### Step 2: Download the Script
 Download the script directly from your GitHub repository (replace `your-username` with your actual GitHub username):
 ```bash
+git clone https://github.com/cse-mominul/Proxmox-Cloud-Init-SSH-Auto-Fixer-Dynamic-User-Unlocker.git
+cd Proxmox-Cloud-Init-SSH-Auto-Fixer-Dynamic-User-Unlocker
+chmod +x setup-ssh.sh
+sudo ./setup-ssh.sh
