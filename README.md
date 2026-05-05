@@ -20,5 +20,6 @@ Download the script directly from your GitHub repository (replace `your-username
 ```bash
 git clone https://github.com/cse-mominul/Proxmox-Cloud-Init-SSH-Auto-Fixer-Dynamic-User-Unlocker.git
 cd Proxmox-Cloud-Init-SSH-Auto-Fixer-Dynamic-User-Unlocker
+cd Proxmox
 chmod +x setup-ssh.sh
 sudo ./setup-ssh.sh
