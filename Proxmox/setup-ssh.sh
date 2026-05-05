@@ -1,61 +1,70 @@
 #!/bin/bash
 
 # ==========================================================
-# Proxmox/Cloud-Init SSH Auto-Fixer & Dynamic User Unlocker
-# Purpose: Permanent Password Access without deleting configs
+# Proxmox/Cloud-Init SSH Auto-Fixer Installer
 # ==========================================================
 
-echo "Starting SSH & User Access Configuration..."
+echo "Installing SSH Auto-Fixer..."
 
-# 1. Modify 50-cloud-init.conf instead of removing it
+# ১. মূল স্ক্রিপ্টটি তৈরি করা (/usr/local/bin/ এ)
+cat <<'EOF' | sudo tee /usr/local/bin/setup-ssh.sh > /dev/null
+#!/bin/bash
+echo "Running SSH & User Access Fix..."
+
+# Cloud-init কনফিগ ঠিক করা
 if [ -f /etc/ssh/sshd_config.d/50-cloud-init.conf ]; then
-    sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config.d/50-cloud-init.conf
-    echo "Updated 50-cloud-init.conf to allow password authentication."
+    sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config.d/50-cloud-init.conf
 fi
 
-# 2. Fix ssh_pwauth in cloud.cfg
 if [ -f /etc/cloud/cloud.cfg ]; then
-    sudo sed -i 's/ssh_pwauth: false/ssh_pwauth: true/g' /etc/cloud/cloud.cfg
-    sudo sed -i 's/ssh_pwauth: 0/ssh_pwauth: 1/g' /etc/cloud/cloud.cfg
-    echo "Fixed ssh_pwauth in cloud.cfg."
+    sed -i 's/ssh_pwauth: [Ff]alse/ssh_pwauth: true/g' /etc/cloud/cloud.cfg
+    sed -i 's/ssh_pwauth: 0/ssh_pwauth: 1/g' /etc/cloud/cloud.cfg
 fi
 
-# 3. Standard SSH Configuration Updates
-sudo sed -i 's/^PasswordAuthentication.*/PasswordAuthentication yes/g' /etc/ssh/sshd_config
-sudo sed -i 's/^#PasswordAuthentication.*/PasswordAuthentication yes/g' /etc/ssh/sshd_config
-sudo sed -i 's/^PermitRootLogin.*/PermitRootLogin yes/g' /etc/ssh/sshd_config
-sudo sed -i 's/^#PermitRootLogin.*/PermitRootLogin yes/g' /etc/ssh/sshd_config
-sudo sed -i 's/^KbdInteractiveAuthentication.*/KbdInteractiveAuthentication yes/g' /etc/ssh/sshd_config
+# মেইন SSH কনফিগ আপডেট
+sed -i 's/^PasswordAuthentication.*/PasswordAuthentication yes/g' /etc/ssh/sshd_config
+sed -i 's/^#PasswordAuthentication.*/PasswordAuthentication yes/g' /etc/ssh/sshd_config
+sed -i 's/^PermitRootLogin.*/PermitRootLogin yes/g' /etc/ssh/sshd_config
+sed -i 's/^#PermitRootLogin.*/PermitRootLogin yes/g' /etc/ssh/sshd_config
+sed -i 's/^KbdInteractiveAuthentication.*/KbdInteractiveAuthentication yes/g' /etc/ssh/sshd_config
 
-# 4. Dynamic User Unlock (REPAIRED)
-# We removed "usermod -p '*'" to prevent password corruption
-echo "Unlocking all users for password access..."
+# ইউজার আনলক করা
 for user in $(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd); do
-    sudo usermod -U "$user" 2>/dev/null
+    usermod -U "$user" 2>/dev/null
 done
-sudo usermod -U root 2>/dev/null
+usermod -U root 2>/dev/null
 
-# 5. Persistent Systemd Service
-SCRIPT_PATH=$(readlink -f "$0")
-cat <<EOF | sudo tee /etc/systemd/system/fix-ssh.service
+# SSH সার্ভিস রিস্টার্ট
+systemctl restart sshd
+echo "SSH Fix Applied Successfully."
+EOF
+
+# ২. স্ক্রিপ্টটিকে এক্সিকিউটেবল পারমিশন দেওয়া
+sudo chmod +x /usr/local/bin/setup-ssh.sh
+
+# ৩. Systemd Service ফাইল তৈরি করা
+cat <<EOF | sudo tee /etc/systemd/system/fix-ssh.service > /dev/null
 [Unit]
 Description=Fix SSH Access after Cloud-Init
-After=cloud-final.service sshd.service
+After=network.target cloud-final.service sshd.service
+Before=multi-user.target
 
 [Service]
 Type=oneshot
-ExecStart=$SCRIPT_PATH
+ExecStart=/usr/local/bin/setup-ssh.sh
 RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# 6. Apply Changes
+# ৪. সার্ভিস এক্টিভেট করা
 sudo systemctl daemon-reload
 sudo systemctl enable fix-ssh.service
-sudo systemctl restart sshd
+sudo systemctl restart fix-ssh.service
 
 echo "------------------------------------------------"
-echo "Configuration Updated Successfully!"
+echo "Installation Complete!"
+echo "Service status:"
+sudo systemctl status fix-ssh.service --no-pager
 echo "------------------------------------------------"
