@@ -8,14 +8,12 @@
 echo "Starting SSH & User Access Configuration..."
 
 # 1. Modify 50-cloud-init.conf instead of removing it
-# This changes 'no' to 'yes' inside the override file
 if [ -f /etc/ssh/sshd_config.d/50-cloud-init.conf ]; then
     sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config.d/50-cloud-init.conf
     echo "Updated 50-cloud-init.conf to allow password authentication."
 fi
 
 # 2. Fix ssh_pwauth in cloud.cfg
-# This ensures cloud-init itself allows password auth on next boot
 if [ -f /etc/cloud/cloud.cfg ]; then
     sudo sed -i 's/ssh_pwauth: false/ssh_pwauth: true/g' /etc/cloud/cloud.cfg
     sudo sed -i 's/ssh_pwauth: 0/ssh_pwauth: 1/g' /etc/cloud/cloud.cfg
@@ -27,12 +25,13 @@ sudo sed -i 's/^PasswordAuthentication.*/PasswordAuthentication yes/g' /etc/ssh/
 sudo sed -i 's/^#PasswordAuthentication.*/PasswordAuthentication yes/g' /etc/ssh/sshd_config
 sudo sed -i 's/^PermitRootLogin.*/PermitRootLogin yes/g' /etc/ssh/sshd_config
 sudo sed -i 's/^#PermitRootLogin.*/PermitRootLogin yes/g' /etc/ssh/sshd_config
+sudo sed -i 's/^KbdInteractiveAuthentication.*/KbdInteractiveAuthentication yes/g' /etc/ssh/sshd_config
 
-# 4. Dynamic User Unlock
-echo "Unlocking all users..."
+# 4. Dynamic User Unlock (REPAIRED)
+# We removed "usermod -p '*'" to prevent password corruption
+echo "Unlocking all users for password access..."
 for user in $(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd); do
     sudo usermod -U "$user" 2>/dev/null
-    sudo usermod -p '*' "$user" 2>/dev/null
 done
 sudo usermod -U root 2>/dev/null
 
